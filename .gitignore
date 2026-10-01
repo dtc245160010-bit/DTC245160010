@@ -1,0 +1,8 @@
+.env
+*.log
+*.db
+*.backup
+.my.cnf
+*.pem
+*.key
+__pycache__/
