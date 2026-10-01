@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # ==============================
+  # PROMETHEUS
+  # ==============================
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  # ==============================
+  # NODE EXPORTER
+  # ==============================
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # ==============================
+  # CADVISOR - CONTAINER MONITORING
+  # ==============================
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['192.168.240.5:8080']
+
+  # ==============================
+  # MYSQL EXPORTER - DATABASE
+  # ==============================
+  - job_name: 'mysql'
+    static_configs:
+      - targets: ['de3_mysql_exporter:9104']
+
+  # ==============================
+  # NGINX EXPORTER - WEB SERVER
+  # ==============================
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['de3_nginx_exporter:9113']
