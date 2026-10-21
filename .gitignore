@@ -6,3 +6,8 @@
 *.pem
 *.key
 __pycache__/
+
+# Local backup and patch files
+docker-compose.yml.bak
+docker-compose.yml.bak-20261009-091208
+/hardening.patch
