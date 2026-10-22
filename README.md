@@ -1,224 +1,262 @@
 ĐỀ 3 – WEBSITE QUẢNG BÁ SẢN PHẨM SỬ DỤNG WORDPRESS
-> **Học phần:** Triển khai và Quản trị Hệ thống Phần mềm  
-> **Sinh viên:** Vũ Thị Hà  
-> **Mã sinh viên:** DTC245160010  
-> **Repository GitHub:** https://github.com/dtc245160010-bit/DTC245160010.git
+Thông tin	Chi tiết
+Học phần	Triển khai và Quản trị Hệ thống Phần mềm
+Sinh viên	Vũ Thị Hà
+Mã sinh viên	DTC245160010
+GitHub	DTC245160010
 ---
 1. Giới thiệu
-Dự án triển khai website quảng bá sản phẩm sử dụng WordPress trên môi trường Docker Compose. Hệ thống tích hợp cơ sở dữ liệu MySQL, công cụ quản trị cơ sở dữ liệu phpMyAdmin, Nginx làm reverse proxy, Prometheus và Grafana để giám sát, cùng Loki và Promtail để tập trung log.
-Mục tiêu là triển khai các thành phần bằng Docker Compose, hướng dẫn cách khởi chạy và kiểm tra hệ thống, đồng thời trình bày các biện pháp hardening đã cấu hình và kiểm chứng.
+Dự án triển khai website quảng bá sản phẩm bằng WordPress trên môi trường Docker Compose. Hệ thống có các thành phần phục vụ website, quản trị dữ liệu, giám sát và tập trung log.
+Mục tiêu
+Triển khai website WordPress và cơ sở dữ liệu MySQL.
+Sử dụng phpMyAdmin để quản trị cơ sở dữ liệu.
+Sử dụng Nginx làm reverse proxy và áp dụng cấu hình bảo mật HTTP theo cấu hình thực tế.
+Giám sát hệ thống bằng Prometheus và Grafana.
+Thu thập, tập trung và truy vấn log bằng Promtail, Loki và LogQL.
+Trình bày các biện pháp hardening đã thực sự cấu hình và kiểm chứng.
 2. Thành phần hệ thống
 Thành phần	Vai trò	Cách kiểm tra
-WordPress	Website quảng bá sản phẩm	Mở địa chỉ website được công bố ở mục 5
-MySQL	Lưu dữ liệu WordPress	Kiểm tra container và kết nối từ WordPress/phpMyAdmin
-phpMyAdmin	Quản trị cơ sở dữ liệu qua giao diện web	Mở địa chỉ phpMyAdmin ở mục 5
-Nginx	Reverse proxy và/hoặc áp dụng HTTP security headers theo cấu hình	Kiểm tra cấu hình Nginx và phản hồi HTTP
-Prometheus	Thu thập và lưu trữ metrics	Mở giao diện Prometheus, kiểm tra Targets
-Grafana	Hiển thị dashboard giám sát và truy vấn log	Mở dashboard, kiểm tra các panel
-Loki	Lưu trữ log tập trung	Truy vấn log từ Grafana Explore
-Promtail	Thu thập và gửi log đến Loki	Kiểm tra trạng thái dịch vụ và dữ liệu log
-Exporters (nếu được khai báo trong Compose)	Cung cấp metrics cho Prometheus	Kiểm tra Targets trong Prometheus
-> **Lưu ý:** Chỉ giữ các thành phần thực sự được khai báo trong các file Compose của repository. Tên dịch vụ, cổng và đường dẫn bên dưới cần được đối chiếu với cấu hình hiện tại trước khi demo.
-3. Kiến trúc và luồng hoạt động
+WordPress	Website quảng bá sản phẩm	Mở trang web và kiểm tra nội dung
+MySQL	Lưu dữ liệu WordPress	Kiểm tra container và database
+phpMyAdmin	Quản trị database qua giao diện web	Đăng nhập và xem các bảng
+Nginx	Reverse proxy và/hoặc HTTP security headers	Kiểm tra cấu hình và phản hồi HTTP
+Prometheus	Thu thập metrics	Kiểm tra mục Status → Targets
+Grafana	Dashboard giám sát và giao diện truy vấn log	Mở dashboard và Explore
+Loki	Lưu trữ log tập trung	Thực hiện truy vấn LogQL
+Promtail	Thu thập và gửi log đến Loki	Kiểm tra trạng thái dịch vụ và log
+Exporters	Cung cấp metrics cho Prometheus, nếu có	Kiểm tra Prometheus Targets
+> **Lưu ý:** Tên dịch vụ, cổng và các thành phần phải khớp với file Compose thực tế trong repository. Chỉ mô tả những thành phần đã được cấu hình.
+3. Kiến trúc hệ thống
 3.1. Luồng website
-Trình duyệt → Nginx → WordPress → MySQL
-Nginx tiếp nhận yêu cầu HTTP/HTTPS theo cấu hình thực tế rồi chuyển tiếp đến WordPress. WordPress đọc/ghi dữ liệu nội dung trong MySQL. phpMyAdmin cung cấp giao diện để quản trị cơ sở dữ liệu.
+```text
+Trình duyệt
+    |
+    v
+  Nginx
+    |
+    v
+ WordPress
+    |
+    v
+  MySQL
+
+phpMyAdmin ---> MySQL
+```
+Nginx tiếp nhận yêu cầu web và chuyển tiếp đến WordPress theo cấu hình. WordPress đọc/ghi dữ liệu trong MySQL. phpMyAdmin cung cấp giao diện quản trị cơ sở dữ liệu.
 3.2. Luồng giám sát
-Các exporter/dịch vụ được cấu hình → Prometheus → Grafana
-Prometheus thu thập metrics từ các target đã khai báo. Grafana truy vấn nguồn dữ liệu Prometheus và hiển thị các chỉ số trên dashboard. Cần xác nhận các target ở trạng thái UP trước khi chụp ảnh minh chứng.
+```text
+Exporters / targets
+        |
+        v
+   Prometheus
+        |
+        v
+     Grafana
+```
+Prometheus thu thập metrics từ các target đã cấu hình. Grafana truy vấn Prometheus và hiển thị số liệu trên dashboard. Cần kiểm tra trạng thái target và dữ liệu thực tế trước khi demo.
 3.3. Luồng logging
-Docker/container logs → Promtail → Loki → Grafana Explore
-Promtail thu thập log theo cấu hình và gửi đến Loki. Trong Grafana Explore, sử dụng LogQL để lọc log theo nhãn và nội dung. Kết quả truy vấn phụ thuộc vào nhãn thực tế, thời gian được chọn và việc có log phù hợp hay không.
+```text
+Docker/container logs
+        |
+        v
+     Promtail
+        |
+        v
+       Loki
+        |
+        v
+ Grafana Explore
+```
+Promtail thu thập log theo cấu hình và gửi đến Loki. Grafana Explore sử dụng LogQL để lọc log theo nhãn và nội dung.
 4. Yêu cầu môi trường
-Máy Linux/Ubuntu VM hoặc môi trường có Docker Engine.
+Linux/Ubuntu VM hoặc môi trường có Docker Engine.
 Docker Compose plugin.
 Git.
-Trình duyệt web để truy cập các giao diện quản trị.
-Kiểm tra cài đặt:
+Trình duyệt web.
+Kiểm tra công cụ:
 ```bash
 docker --version
 docker compose version
 git --version
 ```
-5. Tải mã nguồn và khởi chạy
-5.1. Clone repository
+5. Hướng dẫn cài đặt và chạy
+5.1. Clone repository (chỉ cần khi chưa có mã nguồn)
 ```bash
 git clone https://github.com/dtc245160010-bit/DTC245160010.git
 cd DTC245160010
 ```
-Nếu thư mục dự án thực tế có tên hoặc vị trí khác, chuyển đến thư mục chứa file Compose trước khi chạy các lệnh tiếp theo.
-5.2. Kiểm tra cấu trúc repository
+Nếu mã nguồn đã có trên máy, chuyển đến thư mục dự án hiện tại thay vì clone lại.
+5.2. Kiểm tra file dự án
 ```bash
 ls -la
 find . -maxdepth 3 -type f | sort
 ```
-Xác định tên file Compose thực tế, ví dụ `docker-compose.yml` hoặc `compose.yaml`, cùng các thư mục cấu hình Nginx, Prometheus, Loki và Promtail nếu có.
+Xác định file Compose thực tế, thường là `docker-compose.yml` hoặc `compose.yaml`.
 5.3. Cấu hình biến môi trường
-Nếu dự án có file `.env.example`, sao chép thành `.env`:
+Nếu repository có file `.env.example`, tạo file `.env`:
 ```bash
 cp .env.example .env
 nano .env
 ```
-Điền các giá trị cần thiết theo biến được tham chiếu trong file Compose. Nếu repository không có `.env.example`, hãy kiểm tra `docker-compose.yml`/`compose.yaml` và tài liệu đi kèm để biết các biến cần thiết; không tạo biến tùy ý.
-Bảo mật: Không đưa mật khẩu thật, token hoặc thông tin nhạy cảm vào GitHub. Không commit file `.env` chứa thông tin bí mật. Chỉ commit file mẫu với giá trị minh họa không dùng trong thực tế. Docker khuyến nghị quản lý biến môi trường cẩn thận và không dùng chúng để truyền bí mật nếu có thể sử dụng cơ chế secrets phù hợp. Tham khảo Docker Docs – Environment variables.
+Điền các biến theo hướng dẫn và theo những biến được tham chiếu trong file Compose. Nếu không có `.env.example`, kiểm tra cấu hình thực tế trước khi tạo biến.
+Bảo mật: Không commit mật khẩu thật, token hoặc file `.env` có thông tin bí mật lên GitHub. Chỉ đưa file mẫu không chứa thông tin nhạy cảm vào repository.
 5.4. Kiểm tra cấu hình và khởi chạy
-Đứng tại thư mục chứa file Compose:
+Chạy trong thư mục chứa file Compose:
 ```bash
 docker compose config
 docker compose up -d
 docker compose ps
 ```
-Nếu dự án dùng nhiều file Compose, cần chỉ định đúng các file bằng `-f`, theo cấu trúc thực tế, ví dụ:
-```bash
-docker compose -f docker-compose.yml -f docker-compose.monitoring.yml config
-docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
-```
-Chỉ dùng ví dụ nhiều file trên nếu repository thực sự có các file với tên tương ứng. Nếu lệnh `docker compose config` báo lỗi, sửa cấu hình trước khi tiếp tục.
-Xem log dịch vụ:
+Xem log:
 ```bash
 docker compose logs --tail 50
 ```
-Xem log của một dịch vụ cụ thể, thay `<service>` bằng tên dịch vụ trong file Compose:
+Xem log một dịch vụ cụ thể:
 ```bash
-docker compose logs --tail 50 <service>
+docker compose logs --tail 50 <ten-dich-vu>
 ```
+Thay `<ten-dich-vu>` bằng tên dịch vụ có trong file Compose. Nếu dự án dùng nhiều file Compose, hãy chỉ định đúng các file đang tồn tại bằng tùy chọn `-f`.
 5.5. Dừng hệ thống
 ```bash
 docker compose down
 ```
-Lệnh trên dừng và gỡ các container/network do Compose quản lý. Không thêm `-v` nếu chưa chắc chắn, vì tùy cấu hình, việc xóa volume có thể làm mất dữ liệu WordPress/MySQL.
-6. Địa chỉ truy cập dịch vụ
-Địa chỉ và cổng phụ thuộc vào phần `ports` trong file Compose. Lấy địa chỉ IP của Ubuntu VM bằng `hostname -I`, sau đó thay `<IP-UBUNTU>` trong bảng dưới bằng IP thực tế.
-Dịch vụ	Địa chỉ mẫu	Nội dung cần xác minh
-WordPress qua Nginx	`http://<IP-UBUNTU>:8080`	Trang website tải thành công
-WordPress trực tiếp (nếu có publish cổng)	`http://<IP-UBUNTU>:8083`	Chỉ dùng nếu cổng này được khai báo trong Compose
-phpMyAdmin	`http://<IP-UBUNTU>:8081`	Đăng nhập được và xem được database
-Grafana	`http://<IP-UBUNTU>:3000`	Đăng nhập được và mở dashboard
-Prometheus	`http://<IP-UBUNTU>:9090`	Mở được giao diện và kiểm tra Targets
-> Đây là các cổng mẫu dựa trên môi trường triển khai đã sử dụng trước đó. Hãy xác minh bằng `docker compose ps` và phần `ports` trong cấu hình hiện tại; không coi các địa chỉ này là cố định nếu cấu hình đã thay đổi.
-7. Kiểm tra website và cơ sở dữ liệu
-7.1. Website WordPress
+> Không thêm `-v` nếu chưa sao lưu và chưa hiểu tác động, vì có thể xóa volume chứa dữ liệu WordPress/MySQL.
+6. Địa chỉ truy cập
+Lấy IP hiện tại của Ubuntu:
+```bash
+hostname -I
+```
+Các cổng dưới đây là giá trị mẫu từng dùng trong môi trường dự án. Xác minh lại bằng `docker compose ps` và phần `ports` trước khi truy cập.
+Dịch vụ	Địa chỉ mẫu
+WordPress qua Nginx	`http://<IP-UBUNTU>:8080`
+WordPress trực tiếp (nếu đã publish cổng)	`http://<IP-UBUNTU>:8083`
+phpMyAdmin	`http://<IP-UBUNTU>:8081`
+Grafana	`http://<IP-UBUNTU>:3000`
+Prometheus	`http://<IP-UBUNTU>:9090`
+Thay `<IP-UBUNTU>` bằng IP thực tế của máy ảo. Chỉ sử dụng địa chỉ ứng với cổng đã được cấu hình.
+7. Kiểm tra website và database
+7.1. WordPress
 Mở địa chỉ WordPress qua Nginx.
-Kiểm tra trang chủ hiển thị nội dung.
-Mở một số trang hoặc sản phẩm đã tạo để chứng minh website hoạt động.
-Chụp ảnh màn hình có thanh địa chỉ trình duyệt.
+Kiểm tra trang chủ và nội dung website.
+Mở một số trang hoặc sản phẩm đã tạo.
+Chụp ảnh minh chứng có thanh địa chỉ trình duyệt.
 7.2. MySQL và phpMyAdmin
 Mở phpMyAdmin.
 Đăng nhập bằng tài khoản được cấu hình trong dự án.
 Xác nhận database WordPress tồn tại.
 Mở danh sách bảng để chứng minh dữ liệu đã được tạo.
-Không chụp hoặc công khai mật khẩu trong ảnh minh chứng.
+Không chụp hoặc công khai mật khẩu.
 8. Nginx reverse proxy và bảo mật HTTP
-Kiểm tra file cấu hình Nginx thực tế trong repository. Khi demo, trình bày:
-Nginx lắng nghe trên cổng nào.
-Nginx chuyển tiếp yêu cầu đến dịch vụ WordPress nào.
-Các HTTP security headers có trong cấu hình, nếu đã bật.
+Kiểm tra file cấu hình Nginx thực tế và trình bày:
+Cổng Nginx đang lắng nghe.
+Địa chỉ dịch vụ WordPress mà Nginx chuyển tiếp đến.
+Các HTTP security headers đã cấu hình, nếu có.
 HTTPS và chứng chỉ self-signed, nếu đã triển khai.
-Có thể kiểm tra phản hồi HTTP bằng lệnh sau, thay URL bằng địa chỉ thực tế:
+Kiểm tra phản hồi HTTP:
 ```bash
 curl -I http://<IP-UBUNTU>:8080
 ```
-Nếu hệ thống đã cấu hình HTTPS, kiểm tra bằng URL `https://...` tương ứng. Chỉ báo cáo HTTPS là hoàn thành khi đã cấu hình và kiểm thử được; nếu mới áp dụng security headers qua HTTP, hãy mô tả đúng trạng thái đó.
+Thay địa chỉ bằng URL thực tế. Chỉ ghi HTTPS hoặc security headers là hoàn thành khi đã kiểm tra được cấu hình và kết quả. Nếu hệ thống chỉ dùng HTTP, hãy mô tả đúng trạng thái thực tế.
 9. Prometheus và Grafana – giám sát
-9.1. Kiểm tra Prometheus
+9.1. Prometheus Targets
 Mở giao diện Prometheus.
-Vào mục Status → Targets.
+Chọn Status → Targets.
 Kiểm tra các target đã cấu hình.
-Chụp ảnh thể hiện target và trạng thái `UP`/`DOWN`.
-Target `UP` cho biết Prometheus có thể scrape target đó tại thời điểm kiểm tra; không tự nó chứng minh toàn bộ ứng dụng hoạt động hoàn hảo.
-9.2. Kiểm tra Grafana
+Chụp ảnh thể hiện tên target và trạng thái `UP`/`DOWN`.
+Trạng thái `UP` cho biết target có thể được scrape tại thời điểm kiểm tra, không có nghĩa toàn bộ ứng dụng chắc chắn không có lỗi.
+9.2. Grafana dashboard
 Đăng nhập Grafana.
 Mở dashboard giám sát đã tạo.
-Chọn khoảng thời gian phù hợp, ví dụ Last 24 hours.
-Xác minh các panel có dữ liệu cho những thành phần thực sự được cấu hình, chẳng hạn:
+Chọn khoảng thời gian có dữ liệu, ví dụ Last 24 hours.
+Kiểm tra các panel có dữ liệu thực tế cho:
 CPU, bộ nhớ và network của container.
-Metrics của Nginx/web server.
-Metrics của MySQL/database.
-Nếu panel trống, kiểm tra nguồn dữ liệu, truy vấn, khoảng thời gian và trạng thái target trước khi chụp ảnh.
-9.3. Minh chứng cần có
-Ảnh Prometheus Targets.
-Ảnh dashboard container monitoring.
-Ảnh panel Nginx.
-Ảnh panel MySQL.
-Các ảnh phải thể hiện dữ liệu thực tế, không chỉ là tên panel.
-10. Loki, Promtail và truy vấn LogQL
-Mở Grafana → Explore, chọn nguồn dữ liệu Loki và đặt khoảng thời gian có log. Trước tiên, mở Label browser để xác nhận nhãn và giá trị nhãn thực tế. Các truy vấn dưới đây là ví dụ cho môi trường đã dùng nhãn `container`; nếu nhãn của hệ thống khác, thay theo dữ liệu thực tế.
-Truy vấn 1 – Log của Nginx
+Nginx/web server.
+MySQL/database.
+Nếu panel trống, kiểm tra nguồn dữ liệu, truy vấn, thời gian và trạng thái target.
+9.3. Ảnh minh chứng
+Prometheus Targets.
+Dashboard container monitoring.
+Panel Nginx.
+Panel MySQL.
+10. Loki, Promtail và LogQL
+Mở Grafana → Explore, chọn nguồn dữ liệu Loki và chọn khoảng thời gian phù hợp. Dùng Label browser để xác nhận tên nhãn và giá trị nhãn thực tế.
+Các truy vấn sau là ví dụ dành cho môi trường có nhãn `container` và tên container tương ứng. Nếu nhãn khác, thay bằng nhãn thực tế.
+Truy vấn 1 – Log Nginx
 ```logql
 {container="de3_nginx"}
 ```
-Ý nghĩa: Lọc log có nhãn container là `de3_nginx`.
-Truy vấn 2 – Log Nginx có mã 499
+Lọc log có nhãn container là `de3_nginx`.
+Truy vấn 2 – Log Nginx chứa mã 499
 ```logql
 {container="de3_nginx"} |= "499"
 ```
-Ý nghĩa: Lọc các dòng log Nginx chứa chuỗi `499`. Nếu không có kết quả, điều đó có thể đơn giản là trong khoảng thời gian chọn không có dòng log phù hợp; không nên tạo log giả để thay thế minh chứng.
+Lọc các dòng log Nginx có chứa chuỗi `499`. Nếu không có kết quả, hãy kiểm tra khoảng thời gian và nhãn; không tạo log giả để làm minh chứng.
 Truy vấn 3 – Log WordPress
 ```logql
 {container="de3_wordpress"}
 ```
-Ý nghĩa: Lọc log có nhãn container là `de3_wordpress`.
+Lọc log có nhãn container là `de3_wordpress`.
 Cách chứng minh logging hoạt động
 Chọn khoảng thời gian có log.
-Chạy từng truy vấn và chụp ảnh kết quả.
-Nếu truy vấn không trả về log, xác nhận nhãn bằng Label browser và kiểm tra Promtail/Loki.
-Trình bày luồng Docker logs → Promtail → Loki → Grafana Explore.
-Ghi rõ tên nhãn dựa trên kết quả thực tế của hệ thống.
+Chạy 2–3 truy vấn và chụp ảnh kết quả.
+Nếu không có log, xác minh nhãn trong Label browser và kiểm tra Promtail/Loki.
+Giải thích luồng Docker logs → Promtail → Loki → Grafana Explore.
 11. Hardening – biện pháp bảo mật
-Phần này cần đối chiếu trực tiếp với cấu hình dự án. Chỉ đánh dấu hoàn thành các biện pháp đã triển khai và có thể chứng minh.
+Chỉ đánh dấu các biện pháp đã thực sự triển khai và có bằng chứng.
 Biện pháp	Bằng chứng cần trình bày
-Mật khẩu mạnh, không dùng mật khẩu mẫu khi demo	Cấu hình đã che thông tin bí mật; không công khai mật khẩu
-Không commit `.env` hoặc secret lên GitHub	`.gitignore`, file mẫu không chứa bí mật và kiểm tra repository
-Phân tách mạng Docker theo vai trò	Các khai báo `networks` trong Compose và giải thích dịch vụ nào cần giao tiếp
-Hạn chế publish cổng không cần thiết	Phần `ports`/`expose` trong Compose
+Mật khẩu mạnh	Cấu hình đã che thông tin bí mật; không công khai mật khẩu
+Không commit `.env` hoặc secret	`.gitignore` và file mẫu không chứa bí mật
+Phân tách mạng Docker	Phần `networks` trong Compose và giải thích luồng giao tiếp
+Hạn chế publish cổng	Kiểm tra `ports`/`expose` trong Compose
 Giới hạn quyền tài khoản database	Cấu hình tài khoản và quyền MySQL thực tế
-HTTP security headers hoặc HTTPS	Cấu hình Nginx và kết quả kiểm tra bằng `curl -I`/truy cập HTTPS
-Chạy dịch vụ non-root, nếu hỗ trợ và đã cấu hình	Trường `user`, Dockerfile hoặc kết quả kiểm tra user trong container
-Không cần tuyên bố tất cả biện pháp trong bảng đều đã được triển khai. Hãy nêu rõ biện pháp nào đã làm, cách cấu hình, cách kiểm tra và ảnh minh chứng. Nếu chưa triển khai biện pháp nào, hãy hoàn thiện cấu hình rồi mới ghi là đạt yêu cầu.
+Security headers hoặc HTTPS	Cấu hình Nginx và kết quả `curl -I`/truy cập HTTPS
+Chạy non-root (nếu hỗ trợ và đã cấu hình)	`user`, Dockerfile hoặc kết quả kiểm tra user trong container
+Không tuyên bố biện pháp nào đã hoàn thành nếu chưa cấu hình và kiểm chứng. Trong báo cáo, ghi rõ biện pháp, cách triển khai, cách kiểm tra và ảnh minh chứng.
 12. GitHub và lịch sử commit
-Repository cần có mã nguồn, file cấu hình, README và lịch sử commit có ý nghĩa. Có thể tổ chức các mốc commit theo nội dung công việc, ví dụ:
+Repository cần có mã nguồn, file cấu hình, README và lịch sử commit phản ánh các thay đổi thực tế.
+Ví dụ cách chia commit theo giai đoạn:
 `feat: deploy WordPress with MySQL and Nginx`
 `feat: add Prometheus and Grafana monitoring`
 `feat: add Loki and Promtail logging`
 `docs: improve README and deployment evidence`
-Đây là tên commit gợi ý, không phải bằng chứng rằng các commit đó đã tồn tại. Không tạo commit chỉ để làm đẹp lịch sử; nội dung commit phải khớp với thay đổi thực tế.
-Kiểm tra trước khi đẩy:
+Đây là ví dụ tham khảo, không khẳng định các commit này đã tồn tại. Không tạo commit chỉ để làm đẹp lịch sử.
+Kiểm tra trạng thái Git:
 ```bash
 git status
 git log --oneline --decorate -5
 git diff --check
 git diff -- README.md
 ```
-Sau khi lưu README và kiểm tra thay đổi:
+Sau khi chỉnh sửa README:
 ```bash
 git add README.md
-git commit -m "docs: update deployment README and demo checklist"
+git commit -m "docs: improve README formatting and demo guide"
 git push origin main
 ```
-Nếu nhánh chính không phải `main`, hãy dùng tên nhánh thực tế.
-13. Danh sách minh chứng cho báo cáo và demo
-Nên chuẩn bị ít nhất các ảnh sau, đặt tên dễ hiểu và chèn vào báo cáo:
+Nếu nhánh chính không phải `main`, sử dụng tên nhánh thực tế. Nếu Git báo `nothing to commit`, không cần tạo commit mới.
+13. Danh sách ảnh minh chứng
+Nên chuẩn bị các ảnh sau cho báo cáo và demo:
 `01_github_repository.png` – Repository và cấu trúc mã nguồn.
 `02_git_commits.png` – Lịch sử commit.
-`03_wordpress_homepage.png` – Trang chủ website.
+`03_wordpress_homepage.png` – Trang chủ WordPress.
 `04_phpmyadmin_database.png` – Database và bảng WordPress.
-`05_nginx_config_or_headers.png` – Cấu hình Nginx hoặc kết quả kiểm tra headers.
-`06_prometheus_targets.png` – Trạng thái các target.
+`05_nginx_config_or_headers.png` – Cấu hình Nginx hoặc HTTP headers.
+`06_prometheus_targets.png` – Trạng thái Prometheus Targets.
 `07_grafana_container_monitoring.png` – Metrics container.
-`08_grafana_nginx_metrics.png` – Metrics web server/Nginx.
-`09_grafana_mysql_metrics.png` – Metrics database/MySQL.
+`08_grafana_nginx_metrics.png` – Metrics Nginx.
+`09_grafana_mysql_metrics.png` – Metrics MySQL.
 `10_loki_nginx_logs.png` – Log Nginx trong Grafana Explore.
-`11_logql_query_499.png` – Truy vấn LogQL lọc mã 499, nếu có kết quả thực tế.
-`12_wordpress_logs_and_hardening.png` – Log WordPress và/hoặc bằng chứng hardening.
-Nếu truy vấn 499 không có dữ liệu trong khoảng thời gian kiểm tra, thay ảnh đó bằng một truy vấn log thực tế có kết quả và ghi chú rõ trong báo cáo.
-14. Kịch bản demo ngắn
-Mở GitHub và README để giới thiệu mã nguồn, hướng dẫn chạy và lịch sử commit.
+`11_logql_query.png` – Một truy vấn LogQL có kết quả thực tế.
+`12_hardening_evidence.png` – Bằng chứng hardening.
+Nếu truy vấn mã 499 không có kết quả trong khoảng thời gian kiểm tra, hãy dùng truy vấn log khác có dữ liệu thực tế và ghi chú rõ trong báo cáo.
+14. Kịch bản demo
+Mở GitHub, giới thiệu repository, README và lịch sử commit.
 Mở website WordPress.
-Mở phpMyAdmin, chỉ ra database và bảng WordPress.
+Mở phpMyAdmin và chỉ ra database/bảng WordPress.
 Trình bày Nginx reverse proxy và cấu hình bảo mật đã triển khai.
-Mở Prometheus Targets và xác nhận các target.
+Mở Prometheus Targets.
 Mở Grafana dashboard, giải thích metrics container, Nginx và MySQL.
-Mở Grafana Explore, chạy 2–3 truy vấn LogQL.
-Trình bày các biện pháp hardening cùng bằng chứng cấu hình/kiểm tra.
+Mở Grafana Explore và chạy 2–3 truy vấn LogQL.
+Trình bày các biện pháp hardening cùng ảnh minh chứng.
 15. Kết luận
-Dự án hướng đến việc triển khai website WordPress và các thành phần quản trị, giám sát, logging bằng Docker Compose. Kết quả cuối cùng cần được xác nhận bằng việc khởi chạy thành công, kiểm tra từng dịch vụ, truy vấn metrics/log thực tế và lưu ảnh minh chứng. README này là hướng dẫn triển khai và demo; các cổng, tên dịch vụ, file cấu hình và biện pháp bảo mật phải được đối chiếu với trạng thái thực tế của repository trước khi nộp.
+Dự án kết hợp triển khai website WordPress với công cụ quản trị dữ liệu, giám sát và logging trên Docker Compose. Kết quả cần được xác nhận bằng việc khởi chạy thành công, kiểm tra các dịch vụ, truy vấn metrics/log thực tế và lưu ảnh minh chứng. Tên dịch vụ, cổng, file cấu hình và biện pháp bảo mật trong tài liệu cần khớp với cấu hình thực tế của repository.
